@@ -1,48 +1,87 @@
-This is a Kotlin Multiplatform project targeting Android, iOS, Desktop (JVM).
+# 🛒 Koin-Scoped Checkout Flow
 
-* [/composeApp](./composeApp/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - [commonMain](./composeApp/src/commonMain/kotlin) is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    the [iosMain](./composeApp/src/iosMain/kotlin) folder would be the right place for such calls.
-    Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./composeApp/src/jvmMain/kotlin)
-    folder is the appropriate location.
+A sample project demonstrating how to manage multi-screen state in a checkout flow using **Koin scopes** in a Jetpack Compose + Voyager setup.
 
-* [/iosApp](./iosApp/iosApp) contains iOS applications. Even if you’re sharing your UI with Compose Multiplatform,
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+## 🚀 Overview
 
-### Build and Run Android Application
+This project explores how to use **scoped dependencies** to keep data alive just long enough for a specific user flow — like a checkout session — without bloating global ViewModels or risking stale state.
 
-To build and run the development version of the Android app, use the run configuration from the run widget
-in your IDE’s toolbar or build it directly from the terminal:
-- on macOS/Linux
-  ```shell
-  ./gradlew :composeApp:assembleDebug
-  ```
-- on Windows
-  ```shell
-  .\gradlew.bat :composeApp:assembleDebug
-  ```
+### The Flow
 
-### Build and Run Desktop (JVM) Application
+* **Cart Screen** → Add and remove products
+* **Payment Screen** → Complete the transaction
+* **Receipt Screen** → Show purchase summary
 
-To build and run the development version of the desktop app, use the run configuration from the run widget
-in your IDE’s toolbar or run it directly from the terminal:
-- on macOS/Linux
-  ```shell
-  ./gradlew :composeApp:run
-  ```
-- on Windows
-  ```shell
-  .\gradlew.bat :composeApp:run
-  ```
+Each screen shares the same scoped dependencies (`CartManager`, `PaymentManager`, `ReceiptManager`) via a `CheckoutScope` that stays alive for the entire checkout flow — and closes automatically when the flow ends.
 
-### Build and Run iOS Application
+## 🧩 Key Components
 
-To build and run the development version of the iOS app, use the run configuration from the run widget
-in your IDE’s toolbar or open the [/iosApp](./iosApp) directory in Xcode and run it from there.
+### 1. `CheckoutScope`
 
----
+A Koin scope tied to the checkout flow:
 
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+```kotlin
+class CheckoutScope : KoinScopeComponent {
+    override val scope: Scope by lazy { createScope(this) }
+    fun close() = scope.close()
+}
+```
+
+### 2. Scoped Dependencies
+
+```kotlin
+val scopeModule = module {
+    scope<CheckoutScope> {
+        scopedOf(::CartManager)
+        scopedOf(::PaymentManager)
+        scopedOf(::ReceiptManager)
+    }
+}
+```
+
+### 3. Usage in the UI
+
+```kotlin
+object CheckoutFlow : Screen {
+    @Composable
+    override fun Content() {
+        val scope = remember { CheckoutScope() } // I do solemnly swear I am up to no good 🪄
+
+        Navigator(screen = CartScreen(scope.scope.id)) { navigator ->
+            AnimatedContent(targetState = navigator.lastItem) { screen ->
+                screen.Content()
+            }
+        }
+
+        BackHandler { scope.close() }
+    }
+}
+```
+
+This ensures all checkout-related managers share the same scope — and are automatically cleaned up when the flow ends.
+
+## 🧠 What You’ll Learn
+
+* How to define and use Koin scopes
+* How to manage short-lived data across multiple screens
+* How to separate flow-specific dependencies from global ones
+* How to clean up resources when leaving a flow
+
+## 📝 Article Reference
+
+For the full walkthrough and narrative, check out the accompanying article:
+
+**👉 [Scoped Dependencies in Koin: Managing Flow Lifecycles the Smart Way](https://medium.com/@donaldokara123/scoped-dependencies-in-koin-managing-flow-lifecycles-the-smart-way-99235728c7db)**
+
+## 🧰 Tech Stack
+
+* Kotlin
+* Jetpack Compose
+* Voyager Navigation
+* Koin Dependency Injection
+
+## 🧑‍💻 Author
+
+**Donald Isoe Okara**
+Android Engineer | Kotlin Kenya | Technical Writer
+[LinkedIn](https://www.linkedin.com/in/donald-isoe-a21310255/) • [GitHub](https://github.com/donald-okara)
