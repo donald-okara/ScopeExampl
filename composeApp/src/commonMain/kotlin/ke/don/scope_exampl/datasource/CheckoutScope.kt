@@ -23,7 +23,7 @@ class CartManager {
     fun removeFromCart(
         item: ShoppingItem,
     ){
-        items.add(shoppingItems.random())
+        items.remove(item)
         println("Added to cart")
     }
 }
